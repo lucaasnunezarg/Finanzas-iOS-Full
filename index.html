@@ -239,6 +239,32 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjus
   .tr.dl,.tr.db,.tr.mr,.tr.or{grid-template-columns:minmax(0,1fr) auto!important}
   .t2 small{font-size:11px}
 }
+
+/* franja blanca en el título de cada tarjeta (las tarjetas blancas ya son blancas) */
+#view .card:not(.hl)>.ch,#view .card:not(.hl)>.sec:first-child>h3:first-child{margin:-20px -20px 16px;padding:0 20px;min-height:56px;background:#fff;color:#000;border-radius:calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0;box-sizing:border-box}
+#view .card:not(.hl)>.sec:first-child>h3:first-child{display:flex;align-items:center}
+#view .card:not(.hl)>.ch .t{color:#000}
+#view .card:not(.hl)>.ch small{color:#555}
+#view .card:not(.hl)>.ch .more{color:#333}
+#view .card:not(.hl)>.ch .ib{color:#000;border-color:#aaa}
+#view .card:not(.hl)>.ch .ib.on{background:#000;color:#fff;border-color:#000}
+#view .card:not(.hl)>.ch .btn,#view .card:not(.hl)>.ch .btn.wh{background:#000;color:#fff;border-color:#000}
+#view .card:not(.hl)>.ch+small{margin-top:0}
+.lgd{display:flex;gap:16px;justify-content:flex-end;font-size:11px;color:#aaa;margin:-4px 0 8px}
+.lgd i{display:inline-block;width:18px;margin-right:6px;vertical-align:middle}
+@media(max-width:860px){
+  #view .card:not(.hl)>.ch,#view .card:not(.hl)>.sec:first-child>h3:first-child{margin:-16px -16px 14px;padding:0 16px;min-height:52px;border-radius:19px 19px 0 0}
+}
+/* ventana Personalizado */
+.padd{display:flex;gap:10px;align-items:flex-end}
+.padd .fl{flex:1;min-width:0;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips .pb{color:#ddd}
+
+@media(max-width:860px){
+  #view .w-S .card:not(.hl)>.ch{gap:6px}
+  #view .w-S .card:not(.hl)>.ch .t{font-size:11px;letter-spacing:.7px}
+}
 </style></head><body>
 <div id="app"><aside id="side"></aside><main id="main"><header id="top"></header><div id="view" class="grid"></div></main></div>
 <nav id="bnav"></nav><div id="modal"></div><div id="toast"></div><div id="lock"></div><div id="setup"></div>
@@ -497,7 +523,7 @@ W.dist=(full)=>{const P=PD(),L=egresosP(P);const m=S.cur==='usd'?'usd':'ars';con
   return `<div class="card">${hdr('Distribución de egresos',`<button class="btn" data-a="editCats">Editar categorías</button>`)}${!items.length?empty('Sin egresos en este período'):`<div class="dist"><div style="display:flex;justify-content:center">${donut(items)}</div><div>${items.map(i=>`<div class="drow"><i class="dot" style="background:${i.c}"></i><span class="d">${esc(i.n)}${bud[i.n]?` <small>/ ${AM(m==='usd'?usd(bud[i.n]/cotOf(monthOfP(P)) ):ars(bud[i.n]))}</small>`:''}</span><b style="text-align:right">${Math.round(i.v/tot*100)}%</b><span class="r mut" style="text-align:right">${AM(m==='usd'?usd(i.v):ars(i.v))}</span></div>`).join('')}</div></div>`}</div>`};
 W.evo=()=>{const P=PD(),m0=monthOfP(P),ms=mesesEntre(mesAdd(m0,-5),m0),k=S.cur==='ars'?'ars':'usd';
   const a=ms.map(m=>totIngMes(m)[k]),b=ms.map(m=>totEgrMes(m)[k]);
-  return `<div class="card">${hdr('Evolución',`<span class="ca" style="font-size:11px;color:#aaa"><span style="display:inline-block;width:18px;border-top:2.5px solid #fff"></span>Ingresos <span style="display:inline-block;width:18px;border-top:2px dotted #9a9a9a;margin-left:8px"></span>Egresos</span>`)}${lineChart(a,b,ms.map(m=>MES3[+m.slice(5)-1]))}</div>`};
+  return `<div class="card">${hdr('Evolución')}<div class="lgd"><span><i style="border-top:2.5px solid #fff"></i>Ingresos</span><span><i style="border-top:2px dotted #9a9a9a"></i>Egresos</span></div>${lineChart(a,b,ms.map(m=>MES3[+m.slice(5)-1]))}</div>`};
 W.lIng=(full)=>{const L=ingresosP(PD());return `<div class="card">${hdr('Ingresos',addBtn('addIng','','Nuevo','wh'),'lIng')}${L.length?`<div class="tb">${lim(L,full).map(rowIng).join('')}</div>${moreRow(L.length,6,'lIng',full)}`:empty('Sin ingresos en este período')}</div>`};
 W.lEgr=(full)=>{const L=egresosP(PD()).filter(e=>Number(e.empresa)!==1).sort(sortEgr);return `<div class="card">${hdr('Egresos',addBtn('addEgr','','Nuevo','wh'),'lEgr')}${egrTable(L,full,6,null,'lEgr')}</div>`};
 function empresaCard(titulo,full,more){const L=egresosP(PD()).filter(e=>Number(e.empresa)===1).sort(sortEgr);const[pg,n]=cnt(L);
@@ -711,21 +737,40 @@ ACT.editCats=()=>{let L=cats().map(c=>({...c}));const bud={...cfg('presup',{})};
     $$('[data-b]',m).forEach(i=>{const k=+i.dataset.b;if(L[k]){const v=num(i.value);if(v)bud[L[k].n]=v;else delete bud[L[k].n]}})};
   draw()};
 /* períodos personalizados */
-function allPerOptions(){const c=curMes(),o=[];for(let i=0;i<12;i++){const m=mesAdd(c,-i);o.push({k:'M',v:m})}
-  o.push({k:'H'},{k:'D',n:7},{k:'D',n:15},{k:'D',n:30},{k:'D',n:90},{k:'A'});periodos().filter(p=>p.k==='R').forEach(p=>o.push(p));return o}
+const FIXED_PER=[{k:'H'},{k:'D',n:7},{k:'D',n:15},{k:'D',n:30},{k:'D',n:90},{k:'A'}];
 const canon=p=>p.k==='C'?{k:'M',v:curMes()}:p.k==='P'?{k:'M',v:mesAdd(curMes(),-1)}:p;
 const uncanon=p=>p.k==='M'&&p.v===curMes()?{k:'C'}:p.k==='M'&&p.v===mesAdd(curMes(),-1)?{k:'P'}:p;
-function persModal(){let chosen=periodos().filter(p=>p.k!=='PERS').map(canon);const opts=allPerOptions().map(canon);const hoy=todayISO();
+/* todos los meses que se pueden agregar: los que tienen datos (incluye los duplicados) + 12 atrás y 12 adelante */
+function perMonths(){const c=curMes(),set=new Set();
+  ['Ingresos','Egresos','Cotizaciones'].forEach(t=>D(t).forEach(r=>{const m=r.mes||String(r.fecha||'').slice(0,7);if(/^\d{4}-\d{2}$/.test(m))set.add(m)}));
+  mesesEntre(mesAdd(c,-12),mesAdd(c,12)).forEach(m=>set.add(m));
+  return [...set].sort().reverse()}
+function persModal(){const hoy=todayISO();
+  let chosen=periodos().filter(p=>p.k!=='PERS').map(canon);
   const isOn=p=>chosen.some(x=>samePer(x,p));
-  modal(`<h2>Personalizado</h2><div class="sec"><h3>Elegir un rango</h3><div class="row2"><div class="fl"><label>Desde</label><input type="date" id="pf" value="${S.per.k==='R'?S.per.from:addDays(hoy,-29)}"></div><div class="fl"><label>Hasta</label><input type="date" id="pt" value="${S.per.k==='R'?S.per.to:hoy}"></div></div>
-   <div class="fl"><label>Nombre para guardarlo como botón (opcional)</label><input id="pl" placeholder="Ej: Verano"></div><div class="acts" style="margin-top:0"><button class="btn" id="psave">Guardar como botón</button><button class="btn wh" id="papp">Ver este rango</button></div></div>
-   <div class="sec"><h3>Botones que se muestran arriba</h3><div id="plist">${opts.map((p,i)=>`<div class="ln" style="padding:8px 0"><span>${perLabel(uncanon(p))}</span><button class="sw ${isOn(p)?'on':''}" data-o="${i}"></button></div>`).join('')}</div></div><div class="acts"><button class="btn wh" data-a="closeM">Listo</button></div>`);
+  const fxi=x=>{const i=FIXED_PER.findIndex(f=>samePer(f,x));return i<0?99:i};
+  const lbl=p=>perLabel(uncanon(p));
+  const commit=()=>{const mons=chosen.filter(x=>x.k==='M').sort((a,b)=>a.v<b.v?-1:1);
+    const fx=chosen.filter(x=>x.k!=='M'&&x.k!=='R').sort((a,b)=>fxi(a)-fxi(b));const rg=chosen.filter(x=>x.k==='R');
+    chosen=[...mons,...fx,...rg];setCfg('periodos',chosen.map(uncanon).concat([{k:'PERS'}]),true);renderTop();draw()};
+  const draw=()=>{const box=$('#pbody');if(!box)return;
+    const months=perMonths().filter(m=>!isOn({k:'M',v:m})),otros=FIXED_PER.filter(x=>!isOn(x));
+    const cp=periodOf(S.per),lastM=chosen.filter(x=>x.k==='M').map(x=>x.v).sort().pop();
+    const want=cp.t==='M'&&months.includes(cp.mes)?cp.mes:(lastM&&months.includes(mesAdd(lastM,1))?mesAdd(lastM,1):months[0]);
+    box.innerHTML=`<div class="sec"><h3>Botones de arriba</h3>${chosen.length?chosen.map((x,i)=>`<div class="ln" style="padding:8px 0"><span>${lbl(x)}</span><button class="ib sm" data-del="${i}" title="Eliminar botón" aria-label="Eliminar ${lbl(x)}">${I('trash')}</button></div>`).join(''):'<div class="empty">No hay botones. Agregá uno más abajo.</div>'}</div>
+     <div class="sec"><h3>Agregar un mes</h3>${months.length?`<div class="padd"><div class="fl"><label>Mes (MMM/AA)</label><select id="pm">${months.map(m=>`<option value="${m}"${m===want?' selected':''}>${mesTxt(m)} · ${mesName(m)} ${m.slice(0,4)}</option>`).join('')}</select></div><button class="btn wh" id="padd">Agregar</button></div>`:'<div class="empty">Ya agregaste todos los meses.</div>'}</div>
+     ${otros.length?`<div class="sec"><h3>Otros botones</h3><div class="chips">${otros.map((x,i)=>`<button class="pb" data-fx="${i}">+ ${perLabel(x)}</button>`).join('')}</div></div>`:''}`;
+    $$('[data-del]',box).forEach(b=>b.onclick=()=>{const x=chosen[+b.dataset.del];if(!x)return;if(x.k==='R'&&!confirm('¿Eliminar el rango guardado '+lbl(x)+'?'))return;chosen.splice(+b.dataset.del,1);commit();toast('Botón eliminado')});
+    $$('[data-fx]',box).forEach(b=>b.onclick=()=>{chosen.push(otros[+b.dataset.fx]);commit()});
+    const pa=$('#padd',box);if(pa)pa.onclick=()=>{const v=$('#pm',box).value;if(v){chosen.push({k:'M',v});commit();toast('Agregado '+mesTxt(v))}}};
+  modal(`<div class="mhead"><span class="t">Personalizado</span><button class="btn wh" data-a="closeM">Listo</button></div><div id="pbody"></div>
+   <div class="sec"><h3>Elegir un rango</h3><div class="row2"><div class="fl"><label>Desde</label><input type="date" id="pf" value="${S.per.k==='R'?S.per.from:addDays(hoy,-29)}"></div><div class="fl"><label>Hasta</label><input type="date" id="pt" value="${S.per.k==='R'?S.per.to:hoy}"></div></div>
+   <div class="fl"><label>Nombre para guardarlo como botón (opcional)</label><input id="pl" placeholder="Ej: Verano"></div><div class="acts" style="margin-top:0"><button class="btn" id="psave">Guardar como botón</button><button class="btn wh" id="papp">Ver este rango</button></div></div>`);
+  draw();
   const m=$('#modal');
-  const commit=()=>{const mons=chosen.filter(x=>x.k==='M').sort((a,b)=>a.v<b.v?-1:1);const rest=opts.filter(o=>o.k!=='M'&&isOn(o));setCfg('periodos',[...mons,...rest].map(uncanon).concat([{k:'PERS'}]),true)};
   $('#papp',m).onclick=()=>{const f=$('#pf').value,t=$('#pt').value;if(!f||!t||f>t){toast('Revisá las fechas');return}S.per={k:'R',from:f,to:t};LS.set('per',S.per);closeModal();render()};
   $('#psave',m).onclick=()=>{const f=$('#pf').value,t=$('#pt').value,l=$('#pl').value.trim();if(!f||!t||f>t){toast('Revisá las fechas');return}const p={k:'R',from:f,to:t,label:(l||fmtFecha(f)+'–'+fmtFecha(t)).toUpperCase()};
-    const ps=periodos().filter(x=>x.k!=='PERS');setCfg('periodos',[...ps,p,{k:'PERS'}],true);S.per=p;LS.set('per',p);closeModal();render()};
-  $$('[data-o]',m).forEach(b=>b.onclick=()=>{const p=opts[+b.dataset.o];if(isOn(p))chosen=chosen.filter(x=>!samePer(x,p));else chosen.push(p);commit();b.classList.toggle('on');renderTop()})}
+    const ps=periodos().filter(x=>x.k!=='PERS');setCfg('periodos',[...ps,p,{k:'PERS'}],true);S.per=p;LS.set('per',p);closeModal();render()}}
 /* delegación de clicks */
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');
   if(!b){const rt=e.target.closest('[data-rt]');if(rt&&!S.edit&&!e.target.closest('input,select,textarea,a')){const f=ACT[rt.dataset.rt];if(f)f(rt.dataset.p,rt)}return}
