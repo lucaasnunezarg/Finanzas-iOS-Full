@@ -140,7 +140,7 @@ body.hide-all .amt,.hideme .amt{filter:blur(9px);user-select:none}
 #bnav{display:none}
 @media(max-width:860px){
   #side{display:none}
-  #main{padding:14px 12px 96px}
+  #main{padding:calc(env(safe-area-inset-top,0px) + 14px) calc(env(safe-area-inset-right,0px) + 12px) 96px calc(env(safe-area-inset-left,0px) + 12px)}
   #top{gap:10px}
   #top h1{font-size:22px;flex:1 1 60%}
   .per{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;width:100%;order:5;padding-bottom:4px;scrollbar-width:none}
