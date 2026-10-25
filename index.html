@@ -265,6 +265,41 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjus
   #view .w-S .card:not(.hl)>.ch{gap:6px}
   #view .w-S .card:not(.hl)>.ch .t{font-size:11px;letter-spacing:.7px}
 }
+
+/* logo arriba a la izquierda, como en la primera app */
+#side .lg{gap:12px;padding:2px 8px 24px}
+#side .lg img{width:46px;height:46px}
+#side .lg b{font-size:15px;line-height:1.1}
+.tlogo{display:none;height:38px;width:auto;flex:none}
+@media(max-width:860px){.tlogo{display:block;height:36px}}
+/* deudas: pagos del período y deuda mes a mes */
+.tr.mv{grid-template-columns:48px minmax(0,1fr) 130px!important}
+.tr.sel{background:#141414;border-radius:10px;padding-left:8px;padding-right:8px}
+@container (max-width:480px){.tr.mv{grid-template-columns:44px minmax(0,1fr) auto!important}}
+@media(max-width:860px){.tr.mv{grid-template-columns:44px minmax(0,1fr) auto!important}}
+
+.ca .more{white-space:nowrap;flex:none}
+
+/* personas: la fila entera se pinta del color de quien corresponde (Meli rosa pastel, Lucas azul pastel) */
+.pers{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12px;line-height:1.2}
+.pers i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.pers[data-p=Lucas]{color:#6db3ff}
+.pers[data-p=Meli]{color:#ff8fc0}
+.tr.pm,.tr.pl{color:#1a1a1a;border-radius:12px;padding-left:10px;padding-right:10px;border-bottom-color:transparent;margin:2px 0}
+.tr.pm{background:#f7c8dc}
+.tr.pl{background:#c3dcf7}
+.tr.pm .mut,.tr.pm small,.tr.pm .sm2{color:#7a4a60!important}
+.tr.pl .mut,.tr.pl small,.tr.pl .sm2{color:#40607f!important}
+.tr.pm .pers{color:#a8326b}
+.tr.pl .pers{color:#1f5ea8}
+.tr.pm .chk,.tr.pl .chk{border-color:#1a1a1a}
+.tr.pm .chk.on,.tr.pl .chk.on{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+.tr.pm .chip{border-color:#a8326b;color:#5a2b44}
+.tr.pl .chip{border-color:#1f5ea8;color:#1d3d63}
+.tr.pm .chip.r,.tr.pl .chip.r{border-color:#b3261e;color:#b3261e}
+.tr.pm .chip.w,.tr.pl .chip.w{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+select.pm-sel{background:#f7c8dc;color:#1a1a1a;border-color:#f7c8dc}
+select.pl-sel{background:#c3dcf7;color:#1a1a1a;border-color:#c3dcf7}
 </style></head><body>
 <div id="app"><aside id="side"></aside><main id="main"><header id="top"></header><div id="view" class="grid"></div></main></div>
 <nav id="bnav"></nav><div id="modal"></div><div id="toast"></div><div id="lock"></div><div id="setup"></div>
@@ -292,7 +327,7 @@ const mesTxt=m=>MES3[+m.slice(5)-1]+'/'+m.slice(2,4);
 const mesesEntre=(a,b)=>{const r=[];for(let m=a;m<=b;m=mesAdd(m,1)){r.push(m);if(r.length>400)break}return r};
 const fmtFecha=f=>f?f.slice(8,10)+'/'+f.slice(5,7):'';
 /* ===== estado ===== */
-const KEY={Ingresos:'id',Egresos:'id',Cotizaciones:'mes',Reparto:'id',Subreparto:'id',Registros:'id',Deudas:'id',OtrosAhorros:'id',Mercury:'id',Historial:'fecha'};
+const KEY={Ingresos:'id',Egresos:'id',Cotizaciones:'mes',Reparto:'id',Subreparto:'id',Registros:'id',Deudas:'id',PagosDeuda:'id',OtrosAhorros:'id',Mercury:'id',Historial:'fecha'};
 const S={data:LS.get('cache',{}),cfg:LS.get('cachecfg',{}),sec:LS.get('sec','resumen'),per:LS.get('per',{k:'C'}),cur:LS.get('cur','todo'),edit:false,live:false};
 const CFG={url:LS.get('url',''),token:LS.get('token','')};
 const D=t=>S.data[t]||(S.data[t]=[]);
@@ -314,7 +349,14 @@ async function load(){
   try{const r=await apiGet('all');if(!r.ok)throw new Error(r.error||'error');
     await flush();S.data=r.data;S.cfg=r.data.Config||{};delete S.data.Config;S.live=true;persist();return true}
   catch(e){console.warn('carga',e);S.live=false;toast('Sin conexión: muestro los últimos datos');return false}}
-function up(t,row,quiet){const a=D(t),k=KEY[t],i=a.findIndex(r=>String(r[k])===String(row[k]));if(i>=0)a[i]={...a[i],...row};else a.push(row);persist();send({op:'upsert',table:t,row});if(!quiet)render()}
+function up(t,row,quiet){const a=D(t),k=KEY[t],i=a.findIndex(r=>String(r[k])===String(row[k]));if(i>=0)a[i]={...a[i],...row};else a.unshift(row);persist();send({op:'upsert',table:t,row});if(!quiet)render()}
+/* varias filas de una vez: un solo envío al servidor; las nuevas quedan arriba, igual que en la planilla */
+function upMany(t,rows){if(!rows.length)return;const a=D(t),k=KEY[t],nuevas=[];rows.forEach(row=>{const i=a.findIndex(r=>String(r[k])===String(row[k]));if(i>=0)a[i]={...a[i],...row};else nuevas.push(row)});a.unshift(...nuevas);persist();send({op:'batch',ops:rows.map(row=>({op:'upsert',table:t,row}))})}
+/* para comparar gastos entre meses: sin tildes ni mayúsculas, sin el monto o la cuota que vienen en el nombre (ej: "BBVA Visa - $841.000", "Celular 2/3") */
+const nrmTxt=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s*-\s*(?:u\$|us\$|\$)\s*[\d.,]+\s*$/,'').replace(/\b\d+\s*\/\s*\d+\b/g,'').replace(/\s+/g,' ').trim();
+const egrKey=e=>[nrmTxt(e.descripcion),nrmTxt(e.categoria),nrmTxt(e.grupo),Number(e.empresa)===1?1:0].join('|');
+/* varias tablas a la vez en un solo envío (ej: un pago cambia la deuda y suma un renglón al historial) */
+function upMulti(list){list.forEach(([t,row])=>{const a=D(t),k=KEY[t],i=a.findIndex(r=>String(r[k])===String(row[k]));if(i>=0)a[i]={...a[i],...row};else a.unshift(row)});persist();send({op:'batch',ops:list.map(([t,row])=>({op:'upsert',table:t,row}))})}
 function del(t,id,quiet){const k=KEY[t];S.data[t]=D(t).filter(r=>String(r[k])!==String(id));persist();send({op:'delete',table:t,id});if(!quiet)render()}
 function setCfg(k,v,quiet){S.cfg[k]=v;persist();send({op:'config',key:k,value:v});if(!quiet)render()}
 const cfg=(k,d)=>S.cfg[k]===undefined?d:S.cfg[k];
@@ -395,6 +437,22 @@ function itemCalc(it,P){
 /* ===== deudas / ahorros ===== */
 const deudasAct=()=>D('Deudas').filter(d=>!Number(d.saldada));
 const vDeu=(d,campo)=>conv(d[campo],d.moneda,curMes());
+/* historial de pagos: cada movimiento (pago, suma o ajuste) guarda cuánto cambió la deuda (negativo = bajó) */
+const r2=n=>Math.round((+n||0)*100)/100;
+const deuAlta=d=>String(d.fecha_alta||'').slice(0,10);
+const finMes=m=>m+'-31';
+const movFecha=p=>String(p.fecha||'').slice(0,10);
+/* cuánto se debía al final de un día: lo de hoy más lo que se pagó después, menos lo que se sumó después */
+function deuSaldoEn(d,iso){if(deuAlta(d)&&deuAlta(d)>iso)return 0;let s=+d.monto_actual||0;D('PagosDeuda').forEach(p=>{if(p.deuda===d.id&&movFecha(p)>iso)s-=+p.cambio||0});return Math.max(0,r2(s))}
+const deuTotAl=iso=>sumV(D('Deudas'),d=>conv(deuSaldoEn(d,iso),d.moneda,iso.slice(0,7)));
+const pagosP=P=>D('PagosDeuda').filter(p=>P.t==='M'?String(p.mes)===P.mes:(movFecha(p)>=P.from&&movFecha(p)<=P.to)).sort((a,b)=>movFecha(a)<movFecha(b)?1:movFecha(a)>movFecha(b)?-1:0);
+const vPag=p=>conv(Math.abs(+p.cambio||0),p.moneda,String(p.mes||p.fecha).slice(0,7));
+const pagadoP=P=>sumV(pagosP(P).filter(p=>p.tipo==='pago'),vPag);
+/* meses del gráfico "Deuda mes a mes": desde el primero con datos hasta hoy (o el mes elegido) */
+function deuMeses(P){const c=curMes(),hasta=[c,monthOfP(P)].sort().pop();
+  const all=[...D('Deudas').map(d=>deuAlta(d).slice(0,7)),...D('PagosDeuda').map(p=>String(p.mes||'').slice(0,7))].filter(m=>/^\d{4}-\d{2}$/.test(m)).sort();
+  let desde=all[0]||c;const lim=mesAdd(hasta,-(isMobile()?5:11));if(desde<lim)desde=lim;
+  return mesesEntre(desde,hasta).map(m=>({m,fin:deuTotAl(finMes(m)),pg:pagadoP({t:'M',mes:m})}))}
 function totalAhorros(){const m=sumV(D('Mercury'),r=>({usd:+r.saldo||0,ars:(+r.saldo||0)*cotOf(curMes())}));
   const o=sumV(D('OtrosAhorros'),r=>conv(r.monto,r.moneda,curMes()));return{mer:m,otros:o,tot:addV(m,o)}}
 
@@ -483,26 +541,34 @@ const heroTitle=(pre,P)=>pre+' '+(P.t==='M'?'DE '+P.title:'· '+P.title);
 
 function monthOpts(){const c=curMes();return mesesEntre(mesAdd(c,-30),mesAdd(c,6)).reverse().map(m=>({v:m,l:mesName(m)+' '+m.slice(0,4)}))}
 /* ---- formularios ---- */
+const PERSONAS=['Lucas','Meli'];
+const persOf=r=>(r&&r.persona)||'Lucas';
+const isTarj=e=>Number(e.tarjeta)===1||e.categoria==='Tarjetas';
+const perE=e=>e.persona||(/-\s*meli\s*$/i.test(e.descripcion||'')?'Meli':'Lucas');
+const pTag=p=>`<span class="pers" data-p="${esc(p)}"><i></i>${esc(p)}</span>`;
+const pmCls=p=>p==='Meli'?' pm':p==='Lucas'?' pl':'';
+function tintSel(sel){if(!sel)return;const f=()=>{sel.classList.toggle('pm-sel',sel.value==='Meli');sel.classList.toggle('pl-sel',sel.value==='Lucas')};sel.addEventListener('change',f);f()}
 function formIng(id){const r=id?D('Ingresos').find(x=>x.id===id):null;
-  form({title:r?'Editar ingreso':'Nuevo ingreso',fields:[{k:'fecha',l:'Fecha',t:'date',v:r?r.fecha:todayISO(),req:1},{k:'descripcion',l:'Descripción',v:r&&r.descripcion,req:1},
+  form({title:r?'Editar ingreso':'Nuevo ingreso',fields:[{k:'persona',l:'De quién',t:'select',opts:PERSONAS,v:persOf(r)},{k:'fecha',l:'Fecha',t:'date',v:r?r.fecha:todayISO(),req:1},{k:'descripcion',l:'Descripción',v:r&&r.descripcion,req:1},
    {k:'moneda',l:'Moneda',t:'select',opts:monedaOpts(r&&r.moneda,'USD'),v:r?r.moneda:'USD'},{k:'monto',l:'Monto',t:'number',v:r?r.monto:'',ph:'0'}],
-   onOk:o=>{up('Ingresos',{id:r?r.id:uid(),fecha:o.fecha,mes:o.fecha.slice(0,7),descripcion:o.descripcion,categoria:r?r.categoria:'',moneda:o.moneda,monto:o.monto,notas:r?r.notas:''})},
-   onDel:r?()=>del('Ingresos',r.id):null})}
+   onOk:o=>{up('Ingresos',{id:r?r.id:uid(),fecha:o.fecha,mes:o.fecha.slice(0,7),descripcion:o.descripcion,categoria:r?r.categoria:'',moneda:o.moneda,monto:o.monto,notas:r?r.notas:'',persona:o.persona})},
+   onDel:r?()=>del('Ingresos',r.id):null});tintSel($('#mf select[name=persona]'))}
 function formEgr(id,pre){const r=id?D('Egresos').find(x=>x.id===id):null;const P=PD();const cs=[...new Set([...cats().map(c=>c.n),'Otros'])];
   form({title:r?'Editar egreso':'Nuevo egreso',fields:[{k:'descripcion',l:'Descripción',v:r&&r.descripcion,req:1},
    {k:'grupo',l:'Tipo de gasto',t:'select',opts:[{v:'FIJOS',l:'FIJO'},{v:'VARIABLES',l:'VARIABLE'},{v:'DIA A DIA',l:'DÍA A DÍA'}],v:r?(r.grupo||'VARIABLES'):(pre&&pre.grupo)||'VARIABLES'},
-   {k:'categoria',l:'Categoría',t:'select',opts:cs,v:r?r.categoria:'Otros'},
+   {k:'categoria',l:'Categoría',t:'select',opts:cs,v:r?r.categoria:'Otros'},{k:'persona',l:'De quién es la tarjeta',t:'select',opts:PERSONAS,v:r?perE(r):'Lucas'},
    {k:'moneda',l:'Moneda',t:'select',opts:monedaOpts(r&&r.moneda),v:r?r.moneda:'ARS'},{k:'monto',l:'Monto',t:'number',v:r?r.monto:'',ph:'0'},
    {k:'mes',l:'Mes',t:'select',opts:monthOpts(),v:r?r.mes:monthOfP(P)},{k:'venc',l:'Vencimiento (opcional)',t:'date',v:r&&r.venc},
    {k:'empresa',l:'Es de la empresa',t:'check',v:r?Number(r.empresa)===1:(pre&&pre.empresa)||0},{k:'pagado',l:'Pagado (Día a día siempre cuenta como pagado)',t:'check',v:r&&Number(r.pagado)===1}],
-   onOk:o=>{up('Egresos',{id:r?r.id:uid(),mes:o.mes,descripcion:o.descripcion,categoria:o.categoria,grupo:o.empresa?'':o.grupo,moneda:o.moneda,monto:o.monto,venc:o.venc||'',pagado:(o.grupo==='DIA A DIA'&&!o.empresa)?1:o.pagado,empresa:o.empresa,tarjeta:r?r.tarjeta:0})},
-   onDel:r?()=>del('Egresos',r.id):null})}
+   onOk:o=>{up('Egresos',{id:r?r.id:uid(),mes:o.mes,descripcion:o.descripcion,categoria:o.categoria,grupo:o.empresa?'':o.grupo,moneda:o.moneda,monto:o.monto,venc:o.venc||'',pagado:(o.grupo==='DIA A DIA'&&!o.empresa)?1:o.pagado,empresa:o.empresa,tarjeta:r?r.tarjeta:0,persona:(o.categoria==='Tarjetas'||(r&&Number(r.tarjeta)===1))?o.persona:((r&&r.persona)||'')})},
+   onDel:r?()=>del('Egresos',r.id):null});
+  const cs2=$('#mf select[name=categoria]'),ps=$('#mf select[name=persona]');if(cs2&&ps){const w=ps.closest('.fl'),t=()=>{w.style.display=(cs2.value==='Tarjetas'||(r&&Number(r.tarjeta)===1))?'':'none'};cs2.addEventListener('change',t);t();tintSel(ps)}}
 function formCot(mes){const m=mes||monthOfP(PD());const r=D('Cotizaciones').find(x=>x.mes===m);const e24=m<='2024-12';
   const f=[{k:'usd',l:'Pesos por US$ 1',t:'number',v:r?r.usd:cotOf(m)}];if(e24)f.push({k:'eur',l:'US$ por € 1 (solo 2024)',t:'number',v:eurOf(m)});
   form({title:'Cotización de '+mesName(m)+' '+m.slice(0,4),fields:f,onOk:o=>{if(!o.usd)return false;up('Cotizaciones',{mes:m,usd:o.usd},true);if(e24&&o.eur>0){const mp={...(cfg('eur',{})||{})};mp[m]=o.eur;setCfg('eur',mp,true)}render()}})}
 /* ---- listas ---- */
-function rowIng(r){return `<div class="tr ig" data-rt="edIng" data-p="${r.id}" style="--c:52px minmax(0,1fr) 120px 62px"><span class="mut">${fmtFecha(r.fecha)}</span><span class="d">${esc(r.descripcion)}</span><span class="r"><b>${AM(money(r.monto,r.moneda))}</b></span>${editDel('edIng','delIng',r.id)}</div>`}
-function rowEgr(e){const dia=isDia(e),pd=Number(e.pagado)===1;return `<div class="tr te" data-rt="edEgr" data-p="${e.id}"><span class="c1">${dia?'':chkB(pd,'pay',e.id)}</span><span class="d2"><span class="d" style="${pd&&!dia?'color:#777':''}">${esc(e.descripcion)}</span><span class="mo">${vencChip(e)}</span></span><span class="vc">${vencChip(e)}</span><span class="r"><b>${AM(money(e.monto,e.moneda||'ARS'))}</b></span>${editDel('edEgr','delEgr',e.id)}</div>`}
+function rowIng(r){return `<div class="tr ig${pmCls(persOf(r))}" data-rt="edIng" data-p="${r.id}" style="--c:52px minmax(0,1fr) 120px 62px"><span class="mut">${fmtFecha(r.fecha)}</span><span class="d2"><span class="d">${esc(r.descripcion)}</span><span class="d">${pTag(persOf(r))}</span></span><span class="r"><b>${AM(money(r.monto,r.moneda))}</b></span>${editDel('edIng','delIng',r.id)}</div>`}
+function rowEgr(e){const dia=isDia(e),pd=Number(e.pagado)===1;const tj=isTarj(e),pe=tj?perE(e):'';return `<div class="tr te${pmCls(pe)}" data-rt="edEgr" data-p="${e.id}"><span class="c1">${dia?'':chkB(pd,'pay',e.id)}</span><span class="d2"><span class="d" style="${pd&&!dia&&!pe?'color:#777':''}">${esc(e.descripcion)}</span>${tj?`<span class="d">${pTag(pe)}</span>`:''}<span class="mo">${vencChip(e)}</span></span><span class="vc">${vencChip(e)}</span><span class="r"><b>${AM(money(e.monto,e.moneda||'ARS'))}</b></span>${editDel('edEgr','delEgr',e.id)}</div>`}
 const egrHead=()=>`<div class="tr te th"><span class="c1"></span><span>Descripción</span><span class="vc">Vence</span><span class="r">Monto</span><span class="ed"></span></div>`;
 const moreRow=(tot,shown,wid,full)=>(!full&&wid&&tot>shown)?`<button class="morerow" data-a="more" data-p="${esc(wid)}">+${tot-shown} más ›</button>`:'';
 function egrTable(list,full,n,emptyMsg,wid){if(!list.length)return empty(emptyMsg||'Sin registros en este período');
@@ -535,6 +601,12 @@ W.ahR=()=>{const a=totalAhorros();return `<div class="card">${hdr('Ahorros',eyeB
 W.deR=()=>{const t=sumV(deudasAct(),d=>vDeu(d,'monto_actual'));return `<div class="card">${hdr('Préstamos y deudas',eyeBtn('deR'))}<div class="mid">${AA(t)}</div><div class="sub">${AS(t)}</div><div style="margin-top:12px"><button class="more" data-a="go" data-p="deudas">Ver más ›</button></div></div>`};
 /* ---- ingresos ---- */
 W.heroI=()=>{const P=PD(),t=totIng(P);return `<div class="card hl"><div class="ch"><span class="t">${heroTitle('LO QUE GANASTE',P)}</span>${eyeBtn('all')}</div><div class="big">${AA(t)}</div><div class="sub">${AS(t)}</div></div>`};
+W.porPersona=()=>{const L=ingresosP(PD());
+  const rows=PERSONAS.map(p=>{const l=L.filter(r=>persOf(r)===p);return `<div class="tr pp${pmCls(p)}" style="--c:minmax(0,1fr) auto"><span class="d2"><span class="d">${pTag(p)}</span><span class="d mut">${l.length} ${l.length===1?'ingreso':'ingresos'}</span></span><span class="r"><b>${AA(sumV(l,vIng))}</b></span></div>`}).join('');
+  return `<div class="card">${hdr('Ingresos por persona',eyeBtn('porPersona'))}<div class="tb">${rows}</div></div>`};
+W.tarjetas=()=>{const L=egresosP(PD()).filter(isTarj);
+  const rows=PERSONAS.map(p=>{const l=L.filter(e=>perE(e)===p),[pg,n]=cnt(l);return `<div class="tr pp${pmCls(p)}" style="--c:minmax(0,1fr) auto"><span class="d2"><span class="d">${pTag(p)}</span><span class="d mut">${n} ${n===1?'tarjeta':'tarjetas'}${n?' · '+pg+' pagadas':''}</span></span><span class="r"><b>${AA(sumV(l,vEgr),'ars')}</b></span></div>`}).join('');
+  return `<div class="card">${hdr('Tarjetas por persona',eyeBtn('tarjetas'))}${L.length?`<div class="tb">${rows}</div>`:empty('Sin tarjetas en este período')}</div>`};
 W.mov=(full)=>{const L=ingresosP(PD());return `<div class="card">${hdr('Movimientos',addBtn('addIng','','Nuevo ingreso','wh'))}${L.length?`<div class="tb">${lim(L,full,8).map(rowIng).join('')}</div>${moreRow(L.length,8,'mov',full)}`:empty('Sin ingresos en este período')}</div>`};
 function bucket(it){const P=PD(),c=itemCalc(it,P);
   if(it.modo==='registro')return `<div class="card">${hdr(esc(itemLabel(it)),eyeBtn('rb_'+it.id))}<div class="mid">${AA(c.monto)}</div><div class="sub">Balance ${AA(c.bal)}${S.cur==='todo'?' · '+AM(ars(c.bal.ars)):''}</div>
@@ -576,41 +648,65 @@ W.heroD=()=>{const t=sumV(deudasAct(),d=>vDeu(d,'monto_actual'));const n=deudasA
 W.dch=()=>{const act=sumV(deudasAct(),d=>vDeu(d,'monto_actual')).usd,tot=sumV(D('Deudas'),vDT).usd,mx=Math.max(1,act,tot);
   const bar=(l,v,w)=>`<div style="margin:12px 0"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span class="mut">${l}</span><b>${AM(usd(v))}</b></div><div class="bar" style="height:14px"><i style="width:${v/mx*100}%;background:${w}"></i></div></div>`;
   return `<div class="card">${hdr('Actual vs total')}${bar('Actual',act,'#fff')}${bar('Total',tot,'#555')}</div>`};
-function deuTable(tipo,full){const L=D('Deudas').filter(d=>d.tipo===tipo&&!Number(d.saldada)).sort(byAlta);const t=sumV(L,d=>vDeu(d,'monto_actual'));
+/* fin del período mostrado, sin pasar de hoy */
+const deuFin=P=>{const f=P.t==='M'?finMes(P.mes):P.to,h=todayISO();return f>h?h:f};
+/* deudas con lo que se debía al cierre del período (si es el actual, lo de hoy) */
+function deuList(tipo){const P=PD(),fin=deuFin(P);return D('Deudas').filter(d=>d.tipo===tipo).map(d=>({...d,monto_actual:deuSaldoEn(d,fin)})).filter(d=>d.monto_actual>0).sort(byAlta)}
+const deuPasado=P=>deuFin(P)<todayISO();
+function deuTable(tipo,full){const P0=PD(),L=deuList(tipo);const t=sumV(L,d=>conv(d.monto_actual,d.moneda,deuFin(P0).slice(0,7)));
   const c='minmax(0,.8fr) minmax(0,1fr) 112px 62px';
-  return `<div class="card">${hdr(tipo==='DEUDA'?'Deudas':'Préstamos',addBtn('addDeu',tipo,tipo==='DEUDA'?'Nueva':'Nuevo','wh'))}${L.length?`<div class="tb"><div class="tr th dl" style="--c:${c}"><span>A quién</span><span class="hm">Descripción</span><span class="r">Monto</span><span class="ed"></span></div>${L.map(d=>`<div class="tr dl" data-rt="edDeu" data-p="${d.id}" style="--c:${c}"><span class="d2"><span class="d">${esc(d.quien)}</span><span class="d mut mo">${esc(d.descripcion)}</span></span><span class="d mut hm">${esc(d.descripcion)}</span><span class="r"><b>${AM(money(d.monto_actual,d.moneda))}</b></span>${editDel('edDeu','delDeu',d.id)}</div>`).join('')}<div class="tr tot" style="--c:1fr auto"><span>TOTAL</span><span class="r">${AA(t)}</span></div></div>`:empty('Sin registros')}</div>`}
+  return `<div class="card">${hdr((tipo==='DEUDA'?'Deudas':'Préstamos')+(deuPasado(P0)?' <small>al cierre de '+mesTxt(deuFin(P0).slice(0,7))+'</small>':''),addBtn('addDeu',tipo,tipo==='DEUDA'?'Nueva':'Nuevo','wh'))}${L.length?`<div class="tb"><div class="tr th dl" style="--c:${c}"><span>A quién</span><span class="hm">Descripción</span><span class="r">Monto</span><span class="ed"></span></div>${L.map(d=>`<div class="tr dl" data-rt="edDeu" data-p="${d.id}" style="--c:${c}"><span class="d2"><span class="d">${esc(d.quien)}</span><span class="d mut mo">${esc(d.descripcion)}</span></span><span class="d mut hm">${esc(d.descripcion)}</span><span class="r"><b>${AM(money(d.monto_actual,d.moneda))}</b></span>${editDel('edDeu','delDeu',d.id)}</div>`).join('')}<div class="tr tot" style="--c:1fr auto"><span>TOTAL</span><span class="r">${AA(t)}</span></div></div>`:empty('Sin registros')}</div>`}
 W.dD=(f)=>deuTable('DEUDA',f);W.dP=(f)=>deuTable('PRESTAMO',f);
 const byAlta=(a,b)=>String(b.fecha_alta||'').localeCompare(String(a.fecha_alta||''));
 function deuBig(titulo,campo,L0,full){const L=L0.slice().sort(byAlta),c='minmax(0,.8fr) 84px minmax(0,1fr) 40px 104px';const t=sumV(L,d=>vDeu(d,campo)),wid=campo==='monto_actual'?'dA':'dT',tl=d=>d.tipo==='DEUDA'?'DEUDA':'PRÉSTAMO';
   return `<div class="card">${hdr(titulo,'<small>'+L.length+' registros</small>')}<div class="tb"><div class="tr th db" style="--c:${c}"><span>A quién</span><span class="hm">Tipo</span><span class="hm">Descripción</span><span class="r">Monto</span></div>${lim(L,full,8).map(d=>`<div class="tr db" data-rt="edDeu" data-p="${d.id}" style="--c:${c}"><span class="d2"><span class="d">${esc(d.quien)}</span><span class="mo sm2">${tl(d)}${d.descripcion?' · '+esc(d.descripcion):''}</span></span><span class="d mut hm" style="font-size:11px">${tl(d)}</span><span class="d mut hm">${esc(d.descripcion)}</span><span class="r"><b>${AM(money(d[campo],d.moneda))}</b></span></div>`).join('')}<div class="tr tot" style="--c:1fr auto"><span>TOTAL</span><span class="r">${AA(t)}</span></div></div>${moreRow(L.length,8,wid,full)}</div>`}
 W.dA=(f)=>deuBig('ACTUAL PRESTAMOS/DEUDAS','monto_actual',deudasAct(),f);
 W.dT=(f)=>deuBig('TOTAL PRESTAMOS/DEUDAS','monto_total',D('Deudas'),f);
+/* ---- pagos de deudas por período ---- */
+W.heroP=()=>{const P=PD(),pg=pagadoP(P),ini=P.t==='M'?P.mes+'-01':P.from,antes=deuTotAl(addDays(ini,-1)),des=deuTotAl(deuFin(P)),n=pagosP(P).filter(p=>p.tipo==='pago').length;
+  return `<div class="card hl"><div class="ch"><span class="t">${heroTitle('PAGADO',P)}</span>${eyeBtn('all')}</div><div class="big">${AA(pg)}</div><div class="sub">${AS(pg)}${S.cur==='todo'?' · ':''}${n===1?'1 pago':n+' pagos'}</div>
+  <div class="tr" style="--c:1fr auto;margin-top:12px"><span class="mut">Deuda al empezar</span><span class="r">${AA(antes)}</span></div><div class="tr" style="--c:1fr auto"><span class="mut">Deuda al cierre</span><span class="r"><b>${AA(des)}</b></span></div>
+  <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn bk" data-a="payDeu">${I('plus')}Registrar pago</button></div></div>`};
+W.deuEvo=()=>{const P=PD(),s=deuMeses(P),k=S.cur==='ars'?'ars':'usd',fm=k==='ars'?ars:usd,mx=Math.max(1,...s.map(x=>x.fin[k])),cm=monthOfP(P),last=s[s.length-1],prev=s[s.length-2];
+  let delta='Cuando haya más de un mes vas a ver cuánto fue bajando.';
+  if(prev){const d=prev.fin[k]-last.fin[k];delta=d>0?`Bajó ${fm(d)} frente a ${mesName(prev.m)}`:d<0?`Subió ${fm(-d)} frente a ${mesName(prev.m)}`:`Sin cambios frente a ${mesName(prev.m)}`}
+  const c='minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)';
+  return `<div class="card">${hdr('Deuda mes a mes')}<div class="hbar">${s.map(x=>`<div class="${x.m===cm?'cur':''}"><span class="amt">${nf0.format(x.fin[k])}</span><i style="height:${Math.max(3,x.fin[k]/mx*84)}%"></i><span>${MES3[+x.m.slice(5)-1]}</span></div>`).join('')}</div><div class="sub" style="font-size:12px">${AM(delta)}</div>
+  <div class="tb" style="margin-top:12px"><div class="tr th" style="--c:${c}"><span>Mes</span><span class="r">Pagado</span><span class="r">Quedó debiendo</span></div>${s.slice().reverse().map(x=>`<div class="tr${x.m===cm?' sel':''}" style="--c:${c}"><span>${mesTxt(x.m)}</span><span class="r">${AM(fm(x.pg[k]))}</span><span class="r"><b>${AM(fm(x.fin[k]))}</b></span></div>`).join('')}</div></div>`};
+const deuNom=id=>{const d=D('Deudas').find(x=>x.id===id);return d?d.quien:'(borrada)'};
+const movTxt=p=>{const c=+p.cambio||0;return (c<0?'−':'+')+money(Math.abs(c),p.moneda)};
+function rowMov(p){const tp=p.tipo==='suma'?' <span class="chip">suma</span>':p.tipo==='ajuste'?' <span class="chip">ajuste</span>':'';
+  return `<div class="tr mv" data-rt="edPag" data-p="${p.id}" style="--c:48px minmax(0,1fr) 118px 62px"><span class="mut">${fmtFecha(movFecha(p))}</span><span class="d2"><span class="d">${esc(deuNom(p.deuda))}${tp}</span>${p.nota?`<span class="d mut">${esc(p.nota)}</span>`:''}</span><span class="r"><b>${AM(movTxt(p))}</b></span>${editDel('edPag','delPag',p.id)}</div>`}
+W.deuMov=(full)=>{const P=PD(),L=pagosP(P),pg=pagadoP(P);
+  return `<div class="card">${hdr('Pagos y movimientos',addBtn('payDeu','','Registrar','wh'),'deuMov')}${L.length?`<div class="tb">${lim(L,full,8).map(rowMov).join('')}<div class="tr tot" style="--c:1fr auto"><span>PAGADO</span><span class="r">${AA(pg)}</span></div></div>${moreRow(L.length,8,'deuMov',full)}`:empty('Sin pagos en este período')}</div>`};
 /* ===== registro de widgets por sección ===== */
 const TITLES={hero:'Balance',cot:'Cotización USD',cIng:'Ingresos (total)',cEgr:'Egresos (total)',dist:'Distribución de egresos',evo:'Evolución',lIng:'Lista de ingresos',lEgr:'Lista de egresos',empresaR:'Empresa',pend:'Pendientes',ahR:'Ahorros',deR:'Préstamos y deudas',
- heroI:'Lo que ganaste',mov:'Movimientos',rp:'Reparto por porcentajes',heroE:'Egresos',g_FIJOS:'Fijos',g_VARIABLES:'Variables','g_DIA A DIA':'Día a día',empresaE:'Empresa',
- heroA:'Total ahorros',mer:'Mercury',otr:'Otros ahorros',merL:'Cuentas de Mercury',otrL:'Cuentas de otros',merH:'Historial Mercury',otrH:'Historial otros',heroD:'Actual préstamos/deudas',dch:'Actual vs total',dD:'Deudas',dP:'Préstamos',dA:'Actual',dT:'Total'};
+ heroI:'Lo que ganaste',porPersona:'Ingresos por persona',tarjetas:'Tarjetas por persona',mov:'Movimientos',rp:'Reparto por porcentajes',heroE:'Egresos',g_FIJOS:'Fijos',g_VARIABLES:'Variables','g_DIA A DIA':'Día a día',empresaE:'Empresa',
+ heroA:'Total ahorros',mer:'Mercury',otr:'Otros ahorros',merL:'Cuentas de Mercury',otrL:'Cuentas de otros',merH:'Historial Mercury',otrH:'Historial otros',heroD:'Actual préstamos/deudas',dch:'Actual vs total',dD:'Deudas',dP:'Préstamos',dA:'Actual',dT:'Total',heroP:'Pagado en el período',deuEvo:'Deuda mes a mes',deuMov:'Pagos y movimientos'};
 function sectionWidgets(sec){
   if(sec==='resumen')return[['hero','L','F'],['cot','S','F'],['cIng','M','S'],['cEgr','M','S'],['dist','M','F'],['evo','M','F'],['lIng','M','F'],['lEgr','M','F'],['empresaR','M','F'],['pend','M','F'],['ahR','M','F'],['deR','M','F']].map(a=>({id:a[0],d:a[1],m:a[2],r:W[a[0]]}));
-  if(sec==='ingresos'){const o=[{id:'heroI',d:'F',m:'F',r:W.heroI},{id:'mov',d:'F',m:'F',r:W.mov}];
+  if(sec==='ingresos'){const o=[{id:'heroI',d:'F',m:'F',r:W.heroI},{id:'porPersona',d:'F',m:'F',r:W.porPersona},{id:'mov',d:'F',m:'F',r:W.mov}];
     repItems().forEach(it=>o.push({id:'rb_'+it.id,t:itemLabel(it),d:'S',m:'S',r:()=>bucket(it)}));
     o.push({id:'rp',d:'M',m:'F',r:repTable});
     repItems().forEach(it=>{if(repSubs(it.id).length)o.push({id:'rs_'+it.id,t:'Reparto '+itemLabel(it),d:'M',m:'F',r:()=>subTable(it)});
       if(it.modo==='registro')o.push({id:'rl_'+it.id,t:'Registro '+itemLabel(it),d:'M',m:'F',r:f=>ledger(it,f)})});return o}
-  if(sec==='egresos')return[{id:'heroE',d:'L',m:'F',r:W.heroE},{id:'cot',d:'S',m:'F',r:W.cot},{id:'g_FIJOS',d:'M',m:'F',r:f=>grupoCard('FIJOS','FIJOS',f)},{id:'g_VARIABLES',d:'M',m:'F',r:f=>grupoCard('VARIABLES','VARIABLES',f)},{id:'g_DIA A DIA',d:'M',m:'F',r:f=>grupoCard('DIA A DIA','DÍA A DÍA',f)},{id:'empresaE',d:'M',m:'F',r:f=>empresaCard('EMPRESA',f,'empresaE')},{id:'dist',d:'F',m:'F',r:W.dist}];
+  if(sec==='egresos')return[{id:'heroE',d:'L',m:'F',r:W.heroE},{id:'tarjetas',d:'M',m:'F',r:W.tarjetas},{id:'cot',d:'S',m:'F',r:W.cot},{id:'g_FIJOS',d:'M',m:'F',r:f=>grupoCard('FIJOS','FIJOS',f)},{id:'g_VARIABLES',d:'M',m:'F',r:f=>grupoCard('VARIABLES','VARIABLES',f)},{id:'g_DIA A DIA',d:'M',m:'F',r:f=>grupoCard('DIA A DIA','DÍA A DÍA',f)},{id:'empresaE',d:'M',m:'F',r:f=>empresaCard('EMPRESA',f,'empresaE')},{id:'dist',d:'F',m:'F',r:W.dist}];
   if(sec==='ahorros')return[['heroA','F','F'],['mer','M','F'],['merL','M','F'],['merH','F','F'],['otr','M','F'],['otrL','M','F'],['otrH','F','F']].map(a=>({id:a[0],d:a[1],m:a[2],r:W[a[0]]}));
-  if(sec==='deudas')return[['heroD','M','F'],['dch','M','F'],['dD','M','F'],['dP','M','F'],['dA','M','F'],['dT','M','F']].map(a=>({id:a[0],d:a[1],m:a[2],r:W[a[0]]}));
+  if(sec==='deudas')return[['heroP','M','F'],['heroD','M','F'],['deuEvo','F','F'],['deuMov','F','F'],['dD','M','F'],['dP','M','F'],['dch','M','F'],['dA','M','F'],['dT','M','F']].map(a=>({id:a[0],d:a[1],m:a[2],r:W[a[0]]}));
   return[]}
 const wTitle=w=>w.t||TITLES[w.id]||w.id;
 
 /* ===== motor de widgets, cabecera, navegación y acciones ===== */
 const dev=()=>isMobile()?'m':'d';
 const SECS=[['resumen','Resumen'],['ingresos','Ingresos'],['egresos','Egresos'],['ahorros','Ahorros'],['deudas','Deudas'],['ajustes','Ajustes']];
-const HASPER={resumen:1,ingresos:1,egresos:1};
+const HASPER={resumen:1,ingresos:1,egresos:1,deudas:1};
 let HID=LS.get('hid',{});
 const OLD_ORD={ahorros:'heroA,mer,otr,merL,otrL,merH,otrH'};
 function getLayout(sec){const defs=sectionWidgets(sec);let saved=(cfg('layout_'+dev(),{})[sec]||[]);if(OLD_ORD[sec]&&saved.map(s=>s.id).join()===OLD_ORD[sec])saved=[];const by={};defs.forEach(w=>by[w.id]=w);const out=[];
   saved.forEach(s=>{if(by[s.id]){out.push({id:s.id,size:s.size||(dev()==='m'?by[s.id].m:by[s.id].d),hide:s.hide?1:0,def:by[s.id]});delete by[s.id]}});
-  defs.forEach(w=>{if(by[w.id])out.push({id:w.id,size:dev()==='m'?w.m:w.d,hide:0,def:w})});return out}
+  defs.forEach((w,i)=>{if(!by[w.id])return;const it={id:w.id,size:dev()==='m'?w.m:w.d,hide:0,def:w};let at=0;
+    for(let j=i-1;j>=0;j--){const k=out.findIndex(o=>o.id===defs[j].id);if(k>=0){at=k+1;break}}
+    out.splice(at,0,it)});return out}
 function saveLayout(sec,items){const cur={...cfg('layout_'+dev(),{})};cur[sec]=items.map(i=>({id:i.id,size:i.size,hide:i.hide?1:0}));setCfg('layout_'+dev(),cur,true)}
 const SIZE_SEQ_D=['S','M','L','F'],SIZE_SEQ_M=['S','F'];
 const normSize=(s)=>dev()==='m'?(s==='S'?'S':'F'):s;
@@ -627,11 +723,11 @@ function renderView(){const v=$('#view');
 function periodBtns(){const ps=periodos();const act=ps.findIndex(p=>p.k!=='PERS'&&samePer(p,S.per));
   return ps.map((p,i)=>{const on=p.k==='PERS'?(S.per.k==='R'&&act<0):i===act;return `<button class="pb ${on?'on':''}" data-a="${p.k==='PERS'?'pers':'per'}" data-p="${i}">${perLabel(p)}</button>`}).join('')}
 function renderTop(){const t=SECS.find(s=>s[0]===S.sec)[1];const hid=document.body.classList.contains('hide-all');
-  $('#top').innerHTML=`<h1>${t}</h1>${HASPER[S.sec]?`<div class="per">${periodBtns()}</div>`:''}
+  $('#top').innerHTML=`<img class="tlogo" src="logo.png" alt=""><h1>${t}</h1>${HASPER[S.sec]?`<div class="per">${periodBtns()}</div>`:''}
   <div style="display:flex;gap:8px;align-items:center"><div class="tg">${['todo','usd','ars'].map(c=>`<button class="${S.cur===c?'on':''}" data-a="cur" data-p="${c}">${c==='todo'?'Todo':c.toUpperCase()}</button>`).join('')}</div>
   <button class="ib" data-a="eye" data-p="all" title="Ocultar montos">${I(hid?'eyeoff':'eye')}</button>
   ${S.sec!=='ajustes'?`<button class="ib ${S.edit?'on':''}" data-a="editMode" title="Ordenar y cambiar tamaño de widgets">${I('grid')}</button>`:''}<span id="syncdot"></span></div>`;setSync()}
-function renderNav(){$('#side').innerHTML=`<div class="lg"><img src="logo.png" alt=""><b>FINANZAS</b></div>`+SECS.map(s=>`<button class="nv ${S.sec===s[0]?'on':''}" data-a="go" data-p="${s[0]}">${I(s[0])}${s[1]}</button>`).join('')+`<div style="flex:1"></div><button class="nv" data-a="lockNow">${I('lock')}Bloquear ahora</button>`;
+function renderNav(){$('#side').innerHTML=`<div class="lg"><img src="logo.png" alt=""><b>MIS FINANZAS</b></div>`+SECS.map(s=>`<button class="nv ${S.sec===s[0]?'on':''}" data-a="go" data-p="${s[0]}">${I(s[0])}${s[1]}</button>`).join('')+`<div style="flex:1"></div><button class="nv" data-a="lockNow">${I('lock')}Bloquear ahora</button>`;
   const mob=[['resumen','Resumen'],['ingresos','Ingresos'],['egresos','Egresos'],['ahorros','Ahorros']];
   $('#bnav').innerHTML=mob.map(s=>`<button class="${S.sec===s[0]?'on':''}" data-a="go" data-p="${s[0]}">${I(s[0])}${s[1]}</button>`).join('')+`<button class="${['deudas','ajustes'].includes(S.sec)?'on':''}" data-a="mas">${I('mas')}Más</button>`}
 function render(){document.body.classList.toggle('editing',S.edit);renderNav();renderTop();renderView();refreshMore()}
@@ -682,11 +778,19 @@ ACT.histCot=()=>{const ms=[...new Set([...D('Cotizaciones').map(c=>c.mes),curMes
   $$('input[data-eur]').forEach(i=>i.onchange=()=>{const v=num(i.value);if(v>0){const mp={...(cfg('eur',{})||{})};mp[i.dataset.eur]=v;setCfg('eur',mp,true)}i.value=String(eurOf(i.dataset.eur)).replace('.',',');render2()})};
 function render2(){renderView()}
 ACT.dupMes=()=>{const P=PD(),src=monthOfP(P),opts=monthOpts();const L=D('Egresos').filter(e=>e.mes===src);
-  form({title:'Duplicar egresos de '+mesName(src),fields:[{k:'to',l:'Copiar '+L.length+' egresos a',t:'select',opts,v:mesAdd(src,1)}],ok:'Duplicar',onOk:o=>{
+  form({title:'Duplicar egresos de '+mesName(src),fields:[{k:'to',l:'Copiar '+L.length+' egresos a',t:'select',opts,v:mesAdd(src,1)}],ok:'Duplicar',
+   extra:'<small style="display:block;color:var(--mut2);margin-bottom:6px">Si el mes de destino ya tiene un gasto con el mismo nombre, categoría y grupo, no se vuelve a agregar.</small>',
+   onOk:o=>{
     if(o.to===src){toast('Elegí otro mes');return false}
-    L.forEach(e=>{let venc='';if(e.venc){const d=Math.min(+e.venc.slice(8,10),new Date(+o.to.slice(0,4),+o.to.slice(5,7),0).getDate());venc=o.to+'-'+String(d).padStart(2,'0')}
-      up('Egresos',{id:uid(),mes:o.to,descripcion:e.descripcion,categoria:e.categoria,grupo:e.grupo,moneda:e.moneda,monto:e.monto,venc,pagado:0,empresa:e.empresa,tarjeta:e.tarjeta},true)});
-    S.per={k:'M',v:o.to};LS.set('per',S.per);render();toast('Duplicado en '+mesName(o.to))}})};
+    const have={};D('Egresos').filter(e=>e.mes===o.to).forEach(e=>{const k=egrKey(e);have[k]=(have[k]||0)+1});
+    const nuevos=[];
+    L.forEach(e=>{const k=egrKey(e);if(have[k]>0){have[k]--;return}
+      let venc='';if(e.venc){const d=Math.min(+e.venc.slice(8,10),new Date(+o.to.slice(0,4),+o.to.slice(5,7),0).getDate());venc=o.to+'-'+String(d).padStart(2,'0')}
+      nuevos.push({id:uid(),mes:o.to,descripcion:e.descripcion,categoria:e.categoria,grupo:e.grupo,moneda:e.moneda,monto:e.monto,venc,pagado:0,empresa:e.empresa,tarjeta:e.tarjeta,persona:isTarj(e)?perE(e):(e.persona||'')})});
+    const ya=L.length-nuevos.length;
+    upMany('Egresos',nuevos);
+    S.per={k:'M',v:o.to};LS.set('per',S.per);render();
+    toast(nuevos.length?(nuevos.length===1?'Se agregó 1 egreso':'Se agregaron '+nuevos.length+' egresos')+' a '+mesName(o.to)+(ya?'. '+(ya===1?'1 ya estaba':ya+' ya estaban'):''):'Todos ya estaban en '+mesName(o.to))}})};
 /* reparto */
 function formItem(id){const r=id?D('Reparto').find(x=>x.id===id):null;
   form({title:r?'Editar '+r.nombre:'Nuevo registro de reparto',fields:[{k:'nombre',l:'Destinado a',v:r&&r.nombre,req:1,ph:'Ej: Reparto, Ahorros, Diezmo'},{k:'pct',l:'Porcentaje de los ingresos',t:'number',v:r?r.pct:'',ph:'10'},
@@ -718,8 +822,42 @@ ACT.addOtr=()=>formOtr();ACT.edOtr=id=>formOtr(id);ACT.delOtr=id=>{if(confirm('�
 function formDeu(tipo,id){const r=id?D('Deudas').find(x=>x.id===id):null;const t=r?r.tipo:tipo;
   form({title:(r?'Editar ':'Nueva ')+(t==='DEUDA'?'deuda':'préstamo'),fields:[{k:'quien',l:'A quién',v:r&&r.quien,req:1},{k:'descripcion',l:'Descripción',v:r&&r.descripcion},{k:'moneda',l:'Moneda',t:'select',opts:monedaOpts(r&&r.moneda,'USD'),v:r?r.moneda:'USD'},{k:'monto',l:'Monto actual',t:'number',v:r?r.monto_actual:''}],
    onOk:o=>{const row={id:r?r.id:uid(),quien:o.quien,tipo:t,descripcion:o.descripcion,moneda:o.moneda,monto_actual:o.monto,saldada:o.monto>0?0:1};
-     if(r)row.monto_total=Math.max(+r.monto_total||0,o.monto);else{row.monto_total=o.monto;row.fecha_alta=todayISO()}up('Deudas',row)},
-   onDel:r?()=>up('Deudas',{id:r.id,saldada:1,monto_actual:0}):null})}
+     if(r)row.monto_total=Math.max(+r.monto_total||0,o.monto);else{row.monto_total=o.monto;row.fecha_alta=todayISO()}
+     const dif=r?r2(o.monto-(+r.monto_actual||0)):0;
+     if(dif!==0)upMulti([['Deudas',row],['PagosDeuda',{id:uid(),deuda:r.id,fecha:todayISO(),mes:curMes(),tipo:'ajuste',moneda:o.moneda,cambio:dif,nota:'Ajuste manual'}]]);else up('Deudas',row,true);
+     render()},
+   onDel:r?()=>up('Deudas',{id:r.id,saldada:1,monto_actual:0}):null,
+   extra:r?`<div class="ln" style="margin-top:6px"><span>¿Pagaste algo? Así queda en el historial</span><button type="button" class="btn" data-a="payDeu" data-p="${r.id}">Registrar pago</button></div>`:''})}
+/* registrar un pago (o una suma) y guardarlo en el historial; la deuda baja o sube en el mismo envío */
+function regMov(d,tipo,monto,fecha,nota){monto=r2(Math.abs(monto));if(!(monto>0)){toast('Poné el monto');return false}
+  if(fecha>todayISO()){toast('La fecha no puede ser futura');return false}
+  const act=+d.monto_actual||0;let cambio=tipo==='pago'?-monto:monto,tope=false;
+  if(tipo==='pago'&&monto>act){cambio=-act;tope=true}
+  if(cambio===0){toast('Esa deuda ya está en cero');return false}
+  const nuevo=r2(Math.max(0,act+cambio)),row={id:d.id,monto_actual:nuevo,saldada:nuevo>0?0:1};
+  if(tipo==='suma')row.monto_total=r2((+d.monto_total||0)+monto);
+  upMulti([['Deudas',row],['PagosDeuda',{id:uid(),deuda:d.id,fecha,mes:fecha.slice(0,7),tipo,moneda:d.moneda,cambio,nota:nota||''}]]);
+  {const m=fecha.slice(0,7),p=uncanon({k:'M',v:m});S.per=periodos().some(x=>samePer(x,p))?p:{k:'M',v:m};LS.set('per',S.per)}
+  render();
+  toast((tipo==='pago'?'Pago registrado: '+money(-cambio,d.moneda):'Sumado a la deuda: '+money(cambio,d.moneda))+(nuevo>0?'. Quedan '+money(nuevo,d.moneda):'. Deuda saldada')+(tope?' (era todo lo que debías)':''));return true}
+ACT.payDeu=id=>{const L=deudasAct().slice().sort(byAlta);if(!L.length){toast('Primero cargá una deuda');return}
+  const sel=L.find(x=>x.id===id)||L[0];
+  form({title:'Registrar pago',ok:'Registrar',fields:[
+    {k:'deuda',l:'De qué deuda',t:'select',opts:L.map(d=>({v:d.id,l:d.quien+(d.descripcion?' · '+d.descripcion:'')+' ('+money(d.monto_actual,d.moneda)+')'})),v:sel.id},
+    {k:'tipo',l:'Qué hiciste',t:'select',opts:[{v:'pago',l:'Pagué (baja la deuda)'},{v:'suma',l:'Sumé a la deuda (sube)'}],v:'pago'},
+    {k:'fecha',l:'Fecha',t:'date',v:todayISO(),req:1},{k:'monto',l:'Monto',t:'number',ph:'0',req:1},{k:'nota',l:'Nota (opcional)',v:''}],
+   onOk:o=>{const d=D('Deudas').find(x=>x.id===o.deuda);if(!d)return false;return regMov(d,o.tipo,o.monto,o.fecha,o.nota)}})};
+/* editar o borrar un movimiento: la deuda se ajusta para que el historial siga cerrando */
+function formPag(id){const p=D('PagosDeuda').find(x=>x.id===id);if(!p)return;const d=D('Deudas').find(x=>x.id===p.deuda),sg=(+p.cambio||0)<0?-1:1;
+  form({title:'Editar '+(p.tipo==='pago'?'pago':p.tipo==='suma'?'suma':'ajuste')+' · '+(d?d.quien:''),fields:[{k:'fecha',l:'Fecha',t:'date',v:movFecha(p),req:1},{k:'monto',l:'Monto',t:'number',v:Math.abs(+p.cambio||0),req:1},{k:'nota',l:'Nota (opcional)',v:p.nota||''}],
+   onOk:o=>{if(o.fecha>todayISO()){toast('La fecha no puede ser futura');return false}const nuevo=r2(sg*Math.abs(o.monto)),dif=r2(nuevo-(+p.cambio||0)),lista=[['PagosDeuda',{id:p.id,fecha:o.fecha,mes:o.fecha.slice(0,7),cambio:nuevo,nota:o.nota}]];
+     if(d&&dif!==0){const act=r2(Math.max(0,(+d.monto_actual||0)+dif)),row={id:d.id,monto_actual:act,saldada:act>0?0:1};if(p.tipo==='suma')row.monto_total=r2(Math.max(0,(+d.monto_total||0)+dif));lista.unshift(['Deudas',row])}
+     upMulti(lista);render()},
+   onDel:()=>revertMov(id)})}
+function revertMov(id){const p=D('PagosDeuda').find(x=>x.id===id);if(!p)return;const d=D('Deudas').find(x=>x.id===p.deuda);
+  if(d){const act=r2(Math.max(0,(+d.monto_actual||0)-(+p.cambio||0))),row={id:d.id,monto_actual:act,saldada:act>0?0:1};if(p.tipo==='suma')row.monto_total=r2(Math.max(0,(+d.monto_total||0)-(+p.cambio||0)));up('Deudas',row,true)}
+  del('PagosDeuda',id)}
+ACT.edPag=id=>formPag(id);ACT.delPag=id=>{if(confirm('¿Borrar este movimiento? La deuda vuelve a como estaba antes.'))revertMov(id)};
 ACT.addDeu=t=>formDeu(t);ACT.edDeu=id=>formDeu(null,id);ACT.delDeu=id=>{if(confirm('Se marca como saldada: baja del ACTUAL y queda en el TOTAL como historial.'))up('Deudas',{id,saldada:1,monto_actual:0})};
 /* categorías */
 ACT.editCats=()=>{let L=cats().map(c=>({...c}));const bud={...cfg('presup',{})};let sel=-1;
@@ -792,7 +930,7 @@ function settingsHTML(){const L=LS.get('lock',null),av=getAv(),cal=cfg('calsync'
    <div class="ln"><span>Cerrar sesión en este dispositivo<small>Borra la URL, el token y los datos guardados acá</small></span><button class="btn dg" data-a="disconnect">Cerrar</button></div></div></div>
   <div class="card"><div class="sec"><h3>Seguridad</h3><div class="ln"><span>Bloqueo de la app<small>${L?'Activo'+(L.cred?' con Face ID y PIN':' con PIN'):'Desactivado'}</small></span>${L?'<button class="btn dg" data-a="lockOff">Quitar</button>':'<button class="btn wh" data-a="lockOn">Activar</button>'}</div>
    ${L?`<div class="ln"><span>Face ID<small>${L.cred?'Registrado en este iPhone':'Usa el PIN hasta que lo registres'}</small></span><button class="btn" data-a="faceReg">${L.cred?'Volver a registrar':'Registrar'}</button></div>
-   <div class="ln"><span>Cambiar PIN</span><button class="btn" data-a="pinChange">Cambiar</button></div>
+   <div class="ln"><span>PIN<small>De ${L.len===4?4:6} dígitos</small></span><button class="btn" data-a="pinChange">Cambiar</button></div>
    <div class="ln"><span>Se bloquea al volver después de</span><select style="width:140px" data-a="lockTime">${[[0,'Al instante'],[60,'1 minuto'],[300,'5 minutos'],[1800,'30 minutos']].map(o=>`<option value="${o[0]}" ${+L.t===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`:''}
    <small>Es un bloqueo de la app en este dispositivo. Los datos viven en tu planilla de Google.</small></div></div>
   <div class="card"><div class="sec"><h3>Datos y categorías</h3>
@@ -846,29 +984,31 @@ ACT2.resetAll=ACT2.resetAll;
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 const buf2b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
 const b642buf=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-let pinBuf='',lockMode='check',pinCb=null;
+let pinBuf='',lockMode='check',pinCb=null,newLen=6;
+const pinLen=()=>lockMode==='check'?(((LS.get('lock',null)||{}).len)===4?4:6):newLen;
 function showLock(msg){const L=LS.get('lock',null);if(!L)return;const el=$('#lock');el.classList.add('on');drawLock(msg)}
 function drawLock(msg,title){const L=LS.get('lock',null),el=$('#lock');
-  el.innerHTML=`<img src="logo.png" alt=""><div class="h" style="font-size:18px">${title||'FINANZAS'}</div><small>${msg||(lockMode==='check'?(L&&L.cred?'Face ID o ingresá tu PIN':'Ingresá tu PIN'):'')}</small><div class="dots">${[0,1,2,3,4,5].map(i=>`<i class="${i<pinBuf.length?'on':''}"></i>`).join('')}</div>
+  el.innerHTML=`<img src="logo.png" alt=""><div class="h" style="font-size:18px">${title||'FINANZAS'}</div><small>${msg||(lockMode==='check'?(L&&L.cred?'Face ID o ingresá tu PIN':'Ingresá tu PIN'):'')}</small><div class="dots">${Array.from({length:pinLen()},(_,i)=>`<i class="${i<pinBuf.length?'on':''}"></i>`).join('')}</div>
   <div class="pin">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join('')}<button data-k="face" style="font-size:12px">${L&&L.cred&&lockMode==='check'?'Face ID':''}</button><button data-k="0">0</button><button data-k="del">⌫</button></div>${lockMode==='check'?'':'<button class="btn" data-k="cancel">Cancelar</button>'}`;
   $$('[data-k]',el).forEach(b=>b.onclick=()=>pinKey(b.dataset.k));
   el.onpointerup=ev=>{const l2=LS.get('lock',null);if(l2&&l2.cred&&lockMode==='check'&&!ev.target.closest('[data-k]'))faceUnlock()}}
 async function pinKey(k){const L=LS.get('lock',null);
   if(k==='face'){if(L&&L.cred&&lockMode==='check')faceUnlock();return}
   if(k==='cancel'){pinBuf='';$('#lock').classList.remove('on');pinCb=null;lockMode='check';return}
-  if(k==='del')pinBuf=pinBuf.slice(0,-1);else if(pinBuf.length<6)pinBuf+=k;
+  if(k==='del')pinBuf=pinBuf.slice(0,-1);else if(pinBuf.length<pinLen())pinBuf+=k;
   drawLock();
-  if(lockMode==='check'&&pinBuf.length>=4&&L){const h=await sha(L.salt+pinBuf);if(h===L.pin){pinBuf='';$('#lock').classList.remove('on')}else if(pinBuf.length===6){pinBuf='';drawLock('PIN incorrecto')}}
-  if(lockMode!=='check'&&pinBuf.length===6){const cb=pinCb;const p=pinBuf;pinBuf='';cb&&cb(p)}}
+  if(lockMode==='check'&&pinBuf.length===pinLen()&&L){const h=await sha(L.salt+pinBuf);if(h===L.pin){pinBuf='';$('#lock').classList.remove('on')}else{pinBuf='';drawLock('PIN incorrecto')}}
+  if(lockMode!=='check'&&pinBuf.length===pinLen()){const cb=pinCb;const p=pinBuf;pinBuf='';cb&&cb(p)}}
 let faceBusy=false;
 async function faceUnlock(auto){const L=LS.get('lock',null);if(!L||!L.cred||faceBusy)return;faceBusy=true;
   try{await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{id:b642buf(L.cred),type:'public-key',transports:['internal']}],userVerification:'required',hints:['client-device'],timeout:60000}});faceBusy=false;$('#lock').classList.remove('on')}
   catch(e){faceBusy=false;drawLock(auto?'Tocá la pantalla para usar Face ID, o ingresá el PIN':'No se pudo con Face ID. Tocá la pantalla para reintentar o usá el PIN')}}
-function askPin(title,cb){lockMode='new';pinBuf='';pinCb=cb;$('#lock').classList.add('on');drawLock('6 dígitos',title)}
-ACT2.lockOn=()=>askPin('Elegí un PIN',p1=>askPin('Repetí el PIN',async p2=>{if(p1!==p2){lockMode='check';$('#lock').classList.remove('on');toast('Los PIN no coinciden');return}
-  const salt=uid(),h=await sha(salt+p1);LS.set('lock',{pin:h,salt,cred:null,t:60});lockMode='check';$('#lock').classList.remove('on');render();
-  if(window.PublicKeyCredential&&confirm('¿Querés usar también Face ID en este iPhone?'))ACT2.faceReg()}));
-ACT2.pinChange=()=>askPin('Nuevo PIN',p1=>askPin('Repetí el PIN',async p2=>{lockMode='check';$('#lock').classList.remove('on');if(p1!==p2){toast('No coinciden');return}const L=LS.get('lock'),salt=uid();L.salt=salt;L.pin=await sha(salt+p1);LS.set('lock',L);toast('PIN cambiado')}));
+function askPin(title,cb){lockMode='new';pinBuf='';pinCb=cb;$('#lock').classList.add('on');drawLock(newLen+' dígitos',title)}
+function askLen(cur,cb){form({title:'Largo del PIN',fields:[{k:'len',l:'Cantidad de dígitos',t:'select',opts:[{v:'4',l:'4 dígitos, más rápido'},{v:'6',l:'6 dígitos, más seguro'}],v:String(cur)}],ok:'Seguir',onOk:o=>{newLen=+o.len===4?4:6;setTimeout(cb,0)}})}
+ACT2.lockOn=()=>askLen(6,()=>askPin('Elegí un PIN',p1=>askPin('Repetí el PIN',async p2=>{if(p1!==p2){lockMode='check';$('#lock').classList.remove('on');toast('Los PIN no coinciden');return}
+  const salt=uid(),h=await sha(salt+p1);LS.set('lock',{pin:h,salt,cred:null,t:60,len:newLen});lockMode='check';$('#lock').classList.remove('on');render();
+  if(window.PublicKeyCredential&&confirm('¿Querés usar también Face ID en este iPhone?'))ACT2.faceReg()})));
+ACT2.pinChange=()=>askLen((LS.get('lock',null)||{}).len||6,()=>askPin('Nuevo PIN',p1=>askPin('Repetí el PIN',async p2=>{const len=newLen;lockMode='check';$('#lock').classList.remove('on');if(p1!==p2){toast('No coinciden');return}const L=LS.get('lock'),salt=uid();L.salt=salt;L.pin=await sha(salt+p1);L.len=len;LS.set('lock',L);render();toast('PIN cambiado a '+len+' dígitos')})));
 ACT2.lockOff=()=>{if(confirm('¿Quitar el bloqueo?')){LS.del('lock');render()}};
 ACT2.faceReg=async()=>{const L=LS.get('lock',null);if(!L)return;
   try{const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'Finanzas'},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:'finanzas',displayName:'Finanzas'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',residentKey:'discouraged',requireResidentKey:false,userVerification:'required'},hints:['client-device'],attestation:'none',timeout:60000}});
